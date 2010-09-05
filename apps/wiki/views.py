@@ -188,12 +188,6 @@ def upload(request):
                 "skipped_list": skipped_list,
                 "error_list": error_list,
             })
-                #doc = storage.create_document(
-                #    name=base,
-                #    text=form.cleaned_data['text'],
-
-            
-            return http.HttpResponse('\n'.join(yeslist) + '\n\n' + '\n'.join(nolist))
     else:
         form = DocumentsUploadForm()
 
@@ -212,11 +206,11 @@ def text(request, name):
         form = DocumentTextSaveForm(request.POST, prefix="textsave")
         if form.is_valid():
             revision = form.cleaned_data['parent_revision']
-            document = storage.get_or_404(name, revision)          
+            document = storage.get_or_404(name, revision)
             document.text = form.cleaned_data['text']
             comment = form.cleaned_data['comment']
-            if form.cleaned_data['stage_completed']:        
-                comment += '\n#stage-finished: %s\n' % form.cleaned_data['stage_completed']         
+            if form.cleaned_data['stage_completed']:
+                comment += '\n#stage-finished: %s\n' % form.cleaned_data['stage_completed']
             if request.user.is_authenticated():
                 author_name = request.user
                 author_email = request.user.email
@@ -224,8 +218,8 @@ def text(request, name):
                 author_name = form.cleaned_data['author_name']
                 author_email = form.cleaned_data['author_email']
             author = "%s <%s>" % (author_name, author_email)
-            storage.put(document, author=author, comment=comment, parent=revision)           
-            document = storage.get(name)          
+            storage.put(document, author=author, comment=comment, parent=revision)
+            document = storage.get(name)
             return JSONResponse({
                 'text': document.plain_text if revision != document.revision else None,
                 'meta': document.meta(),
@@ -258,12 +252,15 @@ def text(request, name):
 @never_cache
 @normalized_name
 @require_POST
+@ajax_require_permission('wiki.can_revert_changes')
 def revert(request, name):
     storage = getstorage()
     revision = request.POST['target_revision']
 
+    author = "{0.username} <{0.email}>".format(request.user)
+
     try:
-        document = storage.revert(name, revision)
+        document = storage.revert(name, revision, author=author)
 
         return JSONResponse({
             'text': document.plain_text if revision != document.revision else None,

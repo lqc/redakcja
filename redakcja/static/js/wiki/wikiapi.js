@@ -45,6 +45,9 @@
 		if (vname == "ajax_publish")
 			return base_path + "/" + arguments[1] + "/publish";
 
+	    if (vname == "ajax_document_revert")
+	        return base_path + "/" + arguments[1] + "/revert";
+
 		console.log("Couldn't reverse match:", vname);
 		return "/404.html";
 	};
@@ -78,7 +81,7 @@
 		params = $.extend({}, noops, params);
 		var self = this;
 		$.ajax({
-			method: "GET",
+			type: "GET",
 			url: reverse("ajax_document_text", self.id),
 			data: {"revision": self.revision},
 			dataType: 'json',
@@ -101,6 +104,38 @@
 			}
 		});
 	};
+
+	/*
+	 * Revert document to given revision.
+	 */
+    WikiDocument.prototype.revert = function(params) {
+        params = $.extend({}, noops, params);
+        var self = this;
+        $.ajax({
+            type: "POST",
+            url: reverse("ajax_document_revert", self.id),
+            data: {"target_revision": params.revision},
+            dataType: 'json',
+            success: function(data) {
+                var changed = false;
+
+                if (self.text === null || self.revision !== data.revision) {
+                    self.text = data.text;
+                    self.revision = data.revision;
+                    self.gallery = data.meta.gallery;
+                    changed = true;
+                    self.triggerDocumentChanged();
+                };
+
+                self.has_local_changes = false;
+                params['success'](self, changed);
+            },
+            error: function() {
+                params['failure'](self, "Nie udało się wczytać treści dokumentu.");
+            }
+        });
+	};
+
 	/*
 	 * Fetch history of this document.
 	 *

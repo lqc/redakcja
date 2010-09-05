@@ -9,6 +9,8 @@ import os
 import vstorage
 from vstorage import DocumentNotFound
 from wiki import settings, constants
+
+from django.contrib.auth.models import User as DjangoUser
 from django.utils.translation import ugettext_lazy as _
 
 from django.http import Http404
@@ -22,7 +24,7 @@ _PCHARS_DICT = dict(zip((ord(x) for x in u" "), u"_"))
 
 # I know this is barbaric, but I didn't find a better solution ;(
 def split_name(name):
-    parts = name.translate(_PCHARS_DICT).split('__')
+    parts = name.translate(_PCHARS_DICT).split(u'__')
     return parts
 
 def join_name(*parts, **kwargs):
@@ -52,8 +54,9 @@ class DocumentStorage(object):
         text, rev = self.vstorage.page_text_by_tag(name, tag)
         return Document(self, name=name, text=text, revision=rev)
 
-    def revert(self, name, revision):
-        text, rev = self.vstorage.revert(name, revision)
+    def revert(self, name, revision, author):
+        text, rev = self.vstorage.revert(name, revision,
+                author=author, comment=_("Text reverted to version %d") % int(revision))
         return Document(self, name=name, text=text, revision=rev)
 
     def get_or_404(self, *args, **kwargs):
@@ -159,3 +162,10 @@ class Theme(models.Model):
     def __repr__(self):
         return "Theme(name=%r)" % self.name
 
+# App-wide profile for the user
+class WikiUser(DjangoUser):
+
+    class Meta:
+        permissions = (
+            ("can_revert_changes", "User can revert documents to previous version"),
+        )

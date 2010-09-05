@@ -72,59 +72,19 @@
 
     HistoryPerspective.prototype.onEnter = function(success, failure){
         $.wiki.Perspective.prototype.onEnter.call(this);
-
         $.blockUI({
             message: 'Odświeżanie historii...'
         });
 
-        function _finalize(s){
-            $.unblockUI();
-
-            if (s) {
-                if (success)
-                    success();
+        return this.fetchHistory({
+            success: function() {
+                $.unblockUI();
+                if (success) success();
+            },
+            failure: function() {
+                $.unblockUI();
+                if (failure) failure();
             }
-            else {
-                if (failure)
-                    failure();
-            }
-        }
-
-        function _failure(doc, message){
-            $('#history-view .message-box').html('Nie udało się odświeżyć historii:' + message).show();
-            _finalize(false);
-        };
-
-        function _success(doc, data){
-            $('#history-view .message-box').hide();
-            var changes_list = $('#changes-list');
-            var $stub = $('#history-view .row-stub');
-            changes_list.html('');
-
-			var tags = $('select#id_addtag-tag option');
-
-            $.each(data, function(){
-                $.wiki.renderStub({
-					container: changes_list,
-					stub: $stub,
-					data: this,
-					filters: {
-						tag: function(value) {
-							return tags.filter("*[value='"+value+"']").text();
-						}
-//                        description: function(value) {
-//						    return value.replace('\n', ');
-//						}
-					}
-				});
-            });
-
-            _finalize(true);
-        };
-
-        return this.doc.fetchHistory({
-            success: _success,
-            failure: _failure
         });
     };
 
@@ -171,8 +131,44 @@
             }
         });
     };
+    
+    HistoryPerspective.prototype.fetchHistory = function(params) {
+        params = $.extend({}, params);
+
+        return this.doc.fetchHistory({
+            success: function(doc, data) {
+                $('#history-view .message-box').hide();
+                var changes_list = $('#changes-list');
+                var $stub = $('#history-view .row-stub');
+                changes_list.empty();
+
+                var tags = $('select#id_addtag-tag option');
+
+                $.each(data, function() {
+                    $.wiki.renderStub({
+                        container: changes_list,
+                        stub: $stub,
+                        data: this,
+                        filters: {
+                            tag: function(value) {
+                                return tags.filter("*[value='"+value+"']").text();
+                            }
+                        }
+                    });
+                });
+
+                if(params.success) params.success(doc, data);
+            },
+            failure: function(doc, message) {
+                $('#history-view .message-box').html('Nie udało się odświeżyć historii:' + message).show();
+
+                if(params.failure) params.failure(doc, message);
+            }
+       });
+    };
 
     HistoryPerspective.prototype.revertDocumentToVersion = function(){
+        var self = this;
         var selected = $('#changes-list .entry.selected');
 
         if (selected.length != 1) {
@@ -181,7 +177,13 @@
         }
 
         var version = parseInt($("*[data-stub-value='version']", selected[0]).text());
-        this.doc.revertToVersion({'revision': version});
+        console.log(version);
+        this.doc.revert({
+            'revision': version,
+            success: function() {
+                self.fetchHistory();
+            }
+        });
     };
 
     $.wiki.HistoryPerspective = HistoryPerspective;

@@ -229,7 +229,7 @@ class VersionedStorage(object):
 
         logger.debug("Commiting %r", repo_file)
 
-        self._commit([repo_file], comment, author)
+        return self._commit([repo_file], comment, author)
 
     def save_data(self, title, data, **kwargs):
         """Save data as specified page."""
@@ -272,7 +272,7 @@ class VersionedStorage(object):
         except OSError:
             pass
         self.repo[None].remove([repo_file])
-        self._commit([repo_file], text, user)
+        return self._commit([repo_file], text, user)
 
     def page_text(self, title, revision=None):
         """Read unicode text of a page."""
@@ -456,4 +456,7 @@ class VersionedStorage(object):
         fctx = self._find_filectx(pageid, rev)
 
         # Restore the contents
-        self.save_data(pageid, fctx.data(), **commit_args)
+        new_node = self.save_data(pageid, fctx.data(), **commit_args)
+
+        fctx = self.repo[new_node].filectx(fctx.path());
+        return fctx.data(), fctx.filerev()
